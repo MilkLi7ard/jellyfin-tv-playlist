@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Jellyfin Playlist Builder – Guide</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --accent: #7c6af7;
+    --accent2: #5eead4;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #2e3347;
+    --success: #4ade80;
+    --warn: #facc15;
+    --danger: #f87171;
+    --code-bg: #12151f;
+    --radius: 10px;
+    --font-mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  nav {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 32px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .nav-logo h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-logo p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  nav ul { list-style: none; padding: 0 12px; }
+  nav ul li a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: var(--muted);
+    transition: background 0.15s, color 0.15s;
+  }
+  nav ul li a:hover, nav ul li a.active {
+    background: var(--surface2);
+    color: var(--text);
+    text-decoration: none;
+  }
+  nav ul li a .step-num {
+    background: var(--surface2);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── Main content ── */
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 56px;
+    margin: 0 auto;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #1a1d27 60%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    margin-bottom: 48px;
+  }
+  .hero h1 { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 15px; max-width: 560px; }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .badge {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .badge-purple { color: var(--accent); border-color: var(--accent); background: #1e1b4b; }
+  .badge-teal   { color: var(--accent2); border-color: var(--accent2); background: #0f2b28; }
+  .badge-green  { color: var(--success); border-color: var(--success); background: #052e16; }
+
+  /* ── Section ── */
+  section {
+    margin-bottom: 52px;
+    scroll-margin-top: 32px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  h2 { font-size: 20px; font-weight: 700; color: var(--text); }
+  h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; color: var(--text); }
+
+  p { margin-bottom: 14px; color: var(--muted); }
+  p strong { color: var(--text); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin: 16px 0;
+    overflow: hidden;
+  }
+
+  .code-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface2);
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #c9d1d9;
+  }
+
+  pre .cm  { color: #6e7681; }   /* comment */
+  pre .kw  { color: #ff7b72; }   /* keyword */
+  pre .st  { color: #a5d6ff; }   /* string */
+  pre .fn  { color: #d2a8ff; }   /* function */
+  pre .nu  { color: #79c0ff; }   /* number */
+  pre .va  { color: #ffa657; }   /* variable */
+  pre .op  { color: #ff7b72; }   /* operator */
+
+  /* ── Inline code ── */
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--accent2);
+  }
+
+  /* ── Steps list ── */
+  ol.steps { padding-left: 0; list-style: none; counter-reset: steps; }
+  ol.steps li {
+    counter-increment: steps;
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+  }
+  ol.steps li::before {
+    content: counter(steps);
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  ol.steps li span { color: var(--muted); }
+
+  /* ── Callout ── */
+  .callout {
+    display: flex;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout-info { background: #0f1e3d; border: 1px solid #1e40af; }
+  .callout-warn { background: #1c1500; border: 1px solid #854d0e; }
+  .callout .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout p { margin: 0; color: var(--text); }
+
+  /* ── Example output ── */
+  .terminal {
+    background: #0a0c14;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: #c9d1d9;
+    margin: 16px 0;
+  }
+  .terminal .t-green  { color: var(--success); }
+  .terminal .t-purple { color: var(--accent); }
+  .terminal .t-teal   { color: var(--accent2); }
+  .terminal .t-muted  { color: var(--muted); }
+  .terminal .t-prompt { color: var(--warn); }
+
+  /* ── Troubleshoot table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--text);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #141720; }
+  td code { font-size: 12px; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    nav { display: none; }
+    main { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav>
+    <div class="nav-logo">
+      <h2>📺 Playlist Builder</h2>
+      <p>Jellyfin · Setup Guide</p>
+    </div>
+    <ul>
+      <li><a href="#step1"><span class="step-num">1</span> Find Jellyfin URL</a></li>
+      <li><a href="#step2"><span class="step-num">2</span> Create API Key</a></li>
+      <li><a href="#step3"><span class="step-num">3</span> Get User ID</a></li>
+      <li><a href="#step4"><span class="step-num">4</span> Install Python</a></li>
+      <li><a href="#step5"><span class="step-num">5</span> Save the Script</a></li>
+      <li><a href="#step6"><span class="step-num">6</span> Run the Script</a></li>
+      <li><a href="#troubleshoot"><span class="step-num">?</span> Troubleshooting</a></li>
+    </ul>
+  </nav>
+
+  <!-- Main -->
+  <main>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1>📺 Jellyfin <span>Playlist Builder</span></h1>
+      <p>A Python script that interleaves TV show episodes from multiple series into a single Jellyfin playlist — season by season — using the Jellyfin REST API.</p>
+      <div class="badge-row">
+        <span class="badge badge-purple">Python 3</span>
+        <span class="badge badge-teal">Jellyfin API</span>
+        <span class="badge badge-green">Proxmox / Linux</span>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <section id="step1">
+      <div class="section-header">
+        <div class="step-badge">1</div>
+        <h2>Find Your Jellyfin URL</h2>
+      </div>
+      <p>Since Jellyfin is installed on the same Proxmox server as your media, the default local address is:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>URL</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre>http://localhost:8096</pre>
+      </div>
+      <p>You can also access it from another machine on your network using your Proxmox server's local IP, e.g. <code>http://192.168.1.X:8096</code>. Verify it works by opening it in a browser before continuing.</p>
+    </section>
+
+    <!-- Step 2 -->
+    <section id="step2">
+      <div class="section-header">
+        <div class="step-badge">2</div>
+        <h2>Create an API Key</h2>
+      </div>
+      <p>The script needs an API key to authenticate with Jellyfin without using your password.</p>
+      <ol class="steps">
+        <li><span>Open Jellyfin in your browser and log in as an admin</span></li>
+        <li><span>Click the <strong>☰ menu</strong> → <strong>Administration</strong> → <strong>Dashboard</strong></span></li>
+        <li><span>In the left sidebar, scroll to <strong>Advanced</strong> → click <strong>API Keys</strong></span></li>
+        <li><span>Click the <strong>+</strong> button and give it a name like <code>playlist-builder</code></span></li>
+        <li><span>Click <strong>OK</strong> — copy the key that appears and keep it safe</span></li>
+      </ol>
+      <div class="callout callout-warn">
+        <span class="icon">⚠️</span>
+        <p>The key is only shown once. If you lose it, just delete it and create a new one.</p>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section id="step3">
+      <div class="section-header">
+        <div class="step-badge">3</div>
+        <h2>Get Your User ID</h2>
+      </div>
+      <p>The API requires your account's UUID (not your username).</p>
+      <ol class="steps">
+        <li><span>In the Jellyfin Dashboard, go to <strong>Administration → Users</strong></span></li>
+        <li><span>Click on your user account</span></li>
+        <li><span>Look at the browser URL bar — it will look like this:</span></li>
+      </ol>
+      <div class="code-block">
+        <div class="code-block-header"><span>Browser URL example</span></div>
+        <pre>http://localhost:8096/web/index.html#!/useredit.html?userId=<span style="color:#ffa657">a1b2c3d4e5f6...</span></pre>
+      </div>
+      <p>Copy everything after <code>userId=</code> — that long string is your User ID.</p>
+    </section>
+
+    <!-- Step 4 -->
+    <section id="step4">
+      <div class="section-header">
+        <div class="step-badge">4</div>
+        <h2>Install Python &amp; Dependencies</h2>
+      </div>
+      <p>Connect to your Proxmox server over SSH and run the following commands:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cm"># Verify Python 3 is available</span>
+python3 --version
+
+<span class="cm"># Install the requests library</span>
+pip3 install requests</pre>
+      </div>
+      <p>If <code>pip3</code> is not found, install it first:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre>apt install python3-pip -y</pre>
+      </div>
+    </section>
+
+    <!-- Step 5 -->
+    <section id="step5">
+      <div class="section-header">
+        <div class="step-badge">5</div>
+        <h2>Save the Script</h2>
+      </div>
+      <p>Create the script file on your server and paste in the code below. Fill in your three config values at the top.</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>bash – create the file</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre>nano ~/jellyfin_playlist_builder.py</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header"><span>jellyfin_playlist_builder.py</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cm">#!/usr/bin/env python3</span>
+<span class="cm">"""
+Jellyfin Interleaved Show Playlist Builder
+Creates a playlist that interleaves episodes across selected shows,
+season by season, until all episodes are exhausted.
+"""</span>
+
+<span class="kw">import</span> requests
+<span class="kw">import</span> json
+<span class="kw">from</span> itertools <span class="kw">import</span> zip_longest
+
+<span class="cm"># ─── CONFIG ───────────────────────────────────────────────────────────────────</span>
+<span class="va">JELLYFIN_URL</span> <span class="op">=</span> <span class="st">"http://localhost:8096"</span>   <span class="cm"># Change if using a different port</span>
+<span class="va">API_KEY</span>      <span class="op">=</span> <span class="st">"YOUR_API_KEY_HERE"</span>       <span class="cm"># Jellyfin Dashboard → API Keys</span>
+<span class="va">USER_ID</span>      <span class="op">=</span> <span class="st">"YOUR_USER_ID_HERE"</span>       <span class="cm"># Jellyfin Dashboard → Users → URL</span>
+<span class="cm"># ──────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="va">HEADERS</span> <span class="op">=</span> {
+    <span class="st">"X-Emby-Token"</span>: <span class="va">API_KEY</span>,
+    <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span>,
+    <span class="st">"Accept"</span>: <span class="st">"application/json"</span>,
+}
+
+<span class="kw">def</span> <span class="fn">get</span>(path, **params):
+    r <span class="op">=</span> requests.<span class="fn">get</span>(<span class="fn">f</span><span class="st">"{JELLYFIN_URL}{path}"</span>, headers<span class="op">=</span>HEADERS, params<span class="op">=</span>params)
+    r.<span class="fn">raise_for_status</span>()
+    <span class="kw">return</span> r.<span class="fn">json</span>()
+
+<span class="kw">def</span> <span class="fn">post</span>(path, body):
+    r <span class="op">=</span> requests.<span class="fn">post</span>(<span class="fn">f</span><span class="st">"{JELLYFIN_URL}{path}"</span>, headers<span class="op">=</span>HEADERS, json<span class="op">=</span>body)
+    r.<span class="fn">raise_for_status</span>()
+    <span class="kw">return</span> r.<span class="fn">json</span>()
+
+<span class="kw">def</span> <span class="fn">post_empty</span>(path, **params):
+    r <span class="op">=</span> requests.<span class="fn">post</span>(<span class="fn">f</span><span class="st">"{JELLYFIN_URL}{path}"</span>, headers<span class="op">=</span>HEADERS, params<span class="op">=</span>params)
+    r.<span class="fn">raise_for_status</span>()
+    <span class="kw">return</span> r.<span class="fn">json</span>()
+
+<span class="kw">def</span> <span class="fn">get_all_series</span>():
+    data <span class="op">=</span> <span class="fn">get</span>(
+        <span class="st">"/Items"</span>,
+        userId<span class="op">=</span>USER_ID,
+        IncludeItemTypes<span class="op">=</span><span class="st">"Series"</span>,
+        Recursive<span class="op">=</span><span class="kw">True</span>,
+        Fields<span class="op">=</span><span class="st">"Id,Name,Path"</span>,
+        SortBy<span class="op">=</span><span class="st">"SortName"</span>,
+        SortOrder<span class="op">=</span><span class="st">"Ascending"</span>,
+        Limit<span class="op">=</span><span class="nu">500</span>,
+    )
+    <span class="kw">return</span> data.<span class="fn">get</span>(<span class="st">"Items"</span>, [])
+
+<span class="kw">def</span> <span class="fn">get_episodes</span>(series_id):
+    data <span class="op">=</span> <span class="fn">get</span>(
+        <span class="st">"/Items"</span>,
+        userId<span class="op">=</span>USER_ID,
+        ParentId<span class="op">=</span>series_id,
+        IncludeItemTypes<span class="op">=</span><span class="st">"Episode"</span>,
+        Recursive<span class="op">=</span><span class="kw">True</span>,
+        Fields<span class="op">=</span><span class="st">"Id,Name,ParentIndexNumber,IndexNumber,SeasonName"</span>,
+        SortBy<span class="op">=</span><span class="st">"ParentIndexNumber,IndexNumber"</span>,
+        SortOrder<span class="op">=</span><span class="st">"Ascending"</span>,
+        Limit<span class="op">=</span><span class="nu">2000</span>,
+    )
+    episodes <span class="op">=</span> data.<span class="fn">get</span>(<span class="st">"Items"</span>, [])
+    <span class="kw">return</span> [e <span class="kw">for</span> e <span class="kw">in</span> episodes <span class="kw">if</span> e.<span class="fn">get</span>(<span class="st">"ParentIndexNumber"</span>, <span class="nu">0</span>) <span class="op">&gt;</span> <span class="nu">0</span>]
+
+<span class="kw">def</span> <span class="fn">group_by_season</span>(episodes):
+    seasons <span class="op">=</span> {}
+    <span class="kw">for</span> ep <span class="kw">in</span> episodes:
+        s <span class="op">=</span> ep.<span class="fn">get</span>(<span class="st">"ParentIndexNumber"</span>, <span class="nu">1</span>)
+        seasons.<span class="fn">setdefault</span>(s, []).<span class="fn">append</span>(ep)
+    <span class="kw">return</span> <span class="fn">dict</span>(<span class="fn">sorted</span>(seasons.<span class="fn">items</span>()))
+
+<span class="kw">def</span> <span class="fn">pick_shows</span>(all_series):
+    <span class="fn">print</span>(<span class="st">"
+📺 Available Shows:
+"</span>)
+    <span class="kw">for</span> i, s <span class="kw">in</span> <span class="fn">enumerate</span>(all_series):
+        <span class="fn">print</span>(<span class="fn">f</span><span class="st">"  [{i+1:&gt;3}] {s['Name']}"</span>)
+    <span class="fn">print</span>(<span class="st">"
+Enter show numbers separated by commas (e.g. 1,5,12):"</span>)
+    raw <span class="op">=</span> <span class="fn">input</span>(<span class="st">"&gt; "</span>).<span class="fn">strip</span>()
+    indices <span class="op">=</span> [<span class="fn">int</span>(x.<span class="fn">strip</span>()) <span class="op">-</span> <span class="nu">1</span> <span class="kw">for</span> x <span class="kw">in</span> raw.<span class="fn">split</span>(<span class="st">","</span>) <span class="kw">if</span> x.<span class="fn">strip</span>().<span class="fn">isdigit</span>()]
+    selected <span class="op">=</span> [all_series[i] <span class="kw">for</span> i <span class="kw">in</span> indices <span class="kw">if</span> <span class="nu">0</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="fn">len</span>(all_series)]
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"
+✅ Selected {len(selected)} show(s):"</span>)
+    <span class="kw">for</span> s <span class="kw">in</span> selected:
+        <span class="fn">print</span>(<span class="fn">f</span><span class="st">"   • {s['Name']}"</span>)
+    <span class="kw">return</span> selected
+
+<span class="kw">def</span> <span class="fn">build_interleaved_list</span>(selected_shows):
+    show_seasons <span class="op">=</span> {}
+    <span class="kw">for</span> show <span class="kw">in</span> selected_shows:
+        eps <span class="op">=</span> <span class="fn">get_episodes</span>(show[<span class="st">"Id"</span>])
+        show_seasons[show[<span class="st">"Name"</span>]] <span class="op">=</span> <span class="fn">group_by_season</span>(eps)
+        <span class="fn">print</span>(<span class="fn">f</span><span class="st">"  📂 {show['Name']}: {len(eps)} episodes across {len(show_seasons[show['Name']])} season(s)"</span>)
+
+    max_seasons <span class="op">=</span> <span class="fn">max</span>(<span class="fn">len</span>(v) <span class="kw">for</span> v <span class="kw">in</span> show_seasons.<span class="fn">values</span>()) <span class="kw">if</span> show_seasons <span class="kw">else</span> <span class="nu">0</span>
+    ordered_ids <span class="op">=</span> []
+
+    <span class="kw">for</span> season_num <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, max_seasons <span class="op">+</span> <span class="nu">1</span>):
+        season_episode_lists <span class="op">=</span> []
+        <span class="kw">for</span> show <span class="kw">in</span> selected_shows:
+            season_eps <span class="op">=</span> show_seasons[show[<span class="st">"Name"</span>]].<span class="fn">get</span>(season_num, [])
+            <span class="kw">if</span> season_eps:
+                season_episode_lists.<span class="fn">append</span>(season_eps)
+        <span class="kw">if not</span> season_episode_lists:
+            <span class="kw">continue</span>
+        <span class="kw">for</span> ep_tuple <span class="kw">in</span> <span class="fn">zip_longest</span>(<span class="op">*</span>season_episode_lists):
+            <span class="kw">for</span> ep <span class="kw">in</span> ep_tuple:
+                <span class="kw">if</span> ep <span class="kw">is not</span> <span class="kw">None</span>:
+                    ordered_ids.<span class="fn">append</span>(ep[<span class="st">"Id"</span>])
+    <span class="kw">return</span> ordered_ids
+
+<span class="kw">def</span> <span class="fn">create_playlist</span>(name, episode_ids):
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"
+🎬 Creating playlist '{name}' with {len(episode_ids)} episodes..."</span>)
+    result <span class="op">=</span> <span class="fn">post</span>(<span class="st">"/Playlists"</span>, {
+        <span class="st">"Name"</span>: name,
+        <span class="st">"UserId"</span>: USER_ID,
+        <span class="st">"MediaType"</span>: <span class="st">"Video"</span>,
+        <span class="st">"Ids"</span>: [],
+    })
+    playlist_id <span class="op">=</span> result[<span class="st">"Id"</span>]
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"  ✅ Playlist created (ID: {playlist_id})"</span>)
+
+    batch_size <span class="op">=</span> <span class="nu">100</span>
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">0</span>, <span class="fn">len</span>(episode_ids), batch_size):
+        batch <span class="op">=</span> episode_ids[i:i <span class="op">+</span> batch_size]
+        ids_param <span class="op">=</span> <span class="st">","</span>.<span class="fn">join</span>(batch)
+        <span class="fn">post_empty</span>(<span class="fn">f</span><span class="st">"/Playlists/{playlist_id}/Items"</span>, userId<span class="op">=</span>USER_ID, ids<span class="op">=</span>ids_param)
+        <span class="fn">print</span>(<span class="fn">f</span><span class="st">"  ➕ Added episodes {i+1}–{min(i+batch_size, len(episode_ids))}"</span>)
+
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"
+🎉 Done! Open Jellyfin and find your playlist: '{name}'"</span>)
+    <span class="kw">return</span> playlist_id
+
+<span class="kw">if</span> __name__ <span class="op">==</span> <span class="st">"__main__"</span>:
+    <span class="fn">print</span>(<span class="st">"🔌 Connecting to Jellyfin at"</span>, JELLYFIN_URL)
+    all_series <span class="op">=</span> <span class="fn">get_all_series</span>()
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"   Found {len(all_series)} series across all libraries."</span>)
+
+    selected <span class="op">=</span> <span class="fn">pick_shows</span>(all_series)
+    <span class="kw">if not</span> selected:
+        <span class="fn">print</span>(<span class="st">"No shows selected. Exiting."</span>)
+        <span class="fn">exit</span>(<span class="nu">1</span>)
+
+    default_name <span class="op">=</span> <span class="st">" × "</span>.<span class="fn">join</span>(s[<span class="st">"Name"</span>] <span class="kw">for</span> s <span class="kw">in</span> selected[:<span class="nu">3</span>])
+    <span class="kw">if</span> <span class="fn">len</span>(selected) <span class="op">&gt;</span> <span class="nu">3</span>:
+        default_name <span class="op">+=</span> <span class="st">" × ..."</span>
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"
+Playlist name? (default: '{default_name}')"</span>)
+    name_input <span class="op">=</span> <span class="fn">input</span>(<span class="st">"&gt; "</span>).<span class="fn">strip</span>()
+    playlist_name <span class="op">=</span> name_input <span class="kw">if</span> name_input <span class="kw">else</span> default_name
+
+    episode_ids <span class="op">=</span> <span class="fn">build_interleaved_list</span>(selected)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="st">"
+📋 Total interleaved episodes: {len(episode_ids)}"</span>)
+    <span class="fn">create_playlist</span>(playlist_name, episode_ids)
+</pre>
+      </div>
+      <p>Save with <kbd style="background:var(--surface2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:13px;">Ctrl+O</kbd> → <kbd style="background:var(--surface2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:13px;">Enter</kbd> → <kbd style="background:var(--surface2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:13px;">Ctrl+X</kbd> to exit nano.</p>
+    </section>
+
+    <!-- Step 6 -->
+    <section id="step6">
+      <div class="section-header">
+        <div class="step-badge">6</div>
+        <h2>Run the Script</h2>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header"><span>bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre>python3 ~/jellyfin_playlist_builder.py</pre>
+      </div>
+
+      <h3>Example session</h3>
+      <div class="terminal">
+        <span class="t-teal">🔌 Connecting to Jellyfin at http://localhost:8096</span><br>
+        <span class="t-muted">   Found 87 series across all libraries.</span><br><br>
+        <span class="t-purple">📺 Available Shows:</span><br><br>
+        <span class="t-muted">  [  1] Attack on Titan</span><br>
+        <span class="t-muted">  [  2] Breaking Bad</span><br>
+        <span class="t-muted">  [  3] Frieren: Beyond Journey's End</span><br>
+        <span class="t-muted">  [  4] Jujutsu Kaisen</span><br>
+        <span class="t-muted">  ...</span><br><br>
+        Enter show numbers separated by commas (e.g. 1,5,12):<br>
+        <span class="t-prompt">&gt; 1,3</span><br><br>
+        <span class="t-green">✅ Selected 2 show(s):</span><br>
+        <span class="t-muted">   • Attack on Titan</span><br>
+        <span class="t-muted">   • Frieren: Beyond Journey's End</span><br><br>
+        Playlist name? (default: 'Attack on Titan × Frieren: Beyond Journey's End')<br>
+        <span class="t-prompt">&gt;</span> <span class="t-muted">[Enter to accept]</span><br><br>
+        <span class="t-muted">  📂 Attack on Titan: 87 episodes across 4 season(s)</span><br>
+        <span class="t-muted">  📂 Frieren: 28 episodes across 1 season(s)</span><br><br>
+        <span class="t-teal">📋 Total interleaved episodes: 115</span><br><br>
+        <span class="t-purple">🎬 Creating playlist 'Attack on Titan × Frieren' with 115 episodes...</span><br>
+        <span class="t-green">  ✅ Playlist created (ID: abc123...)</span><br>
+        <span class="t-muted">  ➕ Added episodes 1–100</span><br>
+        <span class="t-muted">  ➕ Added episodes 101–115</span><br><br>
+        <span class="t-green">🎉 Done! Open Jellyfin and find your playlist: 'Attack on Titan × Frieren'</span>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="icon">💡</span>
+        <p>The finished playlist will appear under <strong>Playlists</strong> in the Jellyfin sidebar. Run the script again with different show combinations to create themed playlists.</p>
+      </div>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="troubleshoot">
+      <div class="section-header">
+        <div class="step-badge" style="background:var(--surface2);color:var(--accent);">?</div>
+        <h2>Troubleshooting</h2>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Problem</th><th>Fix</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>Connection refused</code></td><td>Check Jellyfin is running: <code>systemctl status jellyfin</code></td></tr>
+          <tr><td><code>401 Unauthorized</code></td><td>Double-check your API key was copied correctly with no extra spaces</td></tr>
+          <tr><td>Show list is empty</td><td>Make sure your libraries have been scanned in Jellyfin Dashboard → Libraries</td></tr>
+          <tr><td>Playlist appears empty</td><td>Refresh the Jellyfin web UI, or check episode count output in the terminal</td></tr>
+          <tr><td><code>pip3: command not found</code></td><td>Run <code>apt install python3-pip -y</code> first</td></tr>
+          <tr><td>Shows from only one library appear</td><td>Ensure both libraries are enabled for your user in Dashboard → Users</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const text = pre.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav ul li a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+
+</body>
+</html>
